@@ -1,71 +1,88 @@
-import { SafeAreaView, View, Text, StyleSheet, Image } from "react-native";
-import { Link } from "expo-router";
-import homeImg from "../assets/home.png"; // Adjusted to a relevant home icon
+import React, { useState, useEffect } from "react";
+import { SafeAreaView, View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
+import { useRouter } from "expo-router"; // Import useRouter for navigation
+import { auth, firestore } from "../firebase";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 import userImg from "../assets/user.png";
-import scanImg from "../assets/scan.png";
-import itemImg from "../assets/item.png"; // Import the new image for Items
-
-const userProfile = {
-  name: "Amanda",
-  profileImage: require("../assets/user-profile.jpeg"), // Replace with your actual image path
-  stats: {
-    itemsInFridge: 15,
-    expiringSoon: 3,
-    freshItems: 10,
-    wasteReduction: 85, // Percentage
-    mealPreps: 5,
-  },
-};
 
 const User = () => {
+  const [user, setUser] = useState(null);
+  const [username, setUsername] = useState(""); // State to store the username
+  const router = useRouter(); // Initialize the router
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        // Fetch user data from Firestore
+        const userDoc = await getDoc(doc(firestore, "users", currentUser.uid));
+        if (userDoc.exists()) {
+          setUsername(userDoc.data().username || "User"); // Get username or fallback to "User"
+        }
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Error logging out:", error.message);
+    }
+  };
+
+  if (!user) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          <Image source={userImg} style={styles.authImage} />
+          <Text style={styles.loginText}>Welcome to Jasp!</Text>
+          <Text style={styles.subText}>Log in or sign up to manage your fridge.</Text>
+          <TouchableOpacity style={styles.button} onPress={() => router.push("/login")}>
+            <Text style={styles.buttonText}>Log In</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.button, styles.signUpButton]} onPress={() => router.push("/signup")}>
+            <Text style={styles.buttonText}>Sign Up</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Profile Picture */}
-        <Image source={userProfile.profileImage} style={styles.profileImage} />
-
-        {/* User Name */}
-        <Text style={styles.userName}>{userProfile.name}</Text>
-
-        {/* Stats Section */}
+        <Image source={{ uri: user.photoURL || "default_profile_image_url" }} style={styles.profileImage} />
+        <Text style={styles.userName}>{username}</Text> 
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{userProfile.stats.itemsInFridge}</Text>
+            <Text style={styles.statNumber}>15</Text>
             <Text style={styles.statLabel}>Items in Fridge</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{userProfile.stats.expiringSoon}</Text>
+            <Text style={styles.statNumber}>3</Text>
             <Text style={styles.statLabel}>Expiring Soon</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{userProfile.stats.freshItems}</Text>
+            <Text style={styles.statNumber}>10</Text>
             <Text style={styles.statLabel}>Fresh Items</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{userProfile.stats.wasteReduction}%</Text>
+            <Text style={styles.statNumber}>30%</Text>
             <Text style={styles.statLabel}>Waste Reduction</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{userProfile.stats.mealPreps}</Text>
+            <Text style={styles.statNumber}>3</Text>
             <Text style={styles.statLabel}>Meal Preps</Text>
           </View>
         </View>
+        <TouchableOpacity style={styles.button} onPress={handleLogout}>
+          <Text style={styles.buttonText}>Log Out</Text>
+        </TouchableOpacity>
       </View>
-      {/* Navigation Links */}
-      <View style={styles.navigationContainer}>
-          <Link href="/" style={styles.navLink}>
-            <Image source={homeImg} style={styles.navImage} />
-          </Link>
-          <Link href="/fridge" style={styles.navLink}>
-            <Image source={itemImg} style={styles.navImage} />
-          </Link>
-          <Link href="/scan-item" style={styles.navLink}>
-            <Image source={scanImg} style={styles.navImage} />
-          </Link>
-          <Link href="/user" style={styles.navLink}>
-            <Image source={userImg} style={styles.navImage} />
-          </Link>
-        </View>
     </SafeAreaView>
   );
 };
@@ -75,76 +92,90 @@ export default User;
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#5C4033", // Caramel background
+    backgroundColor: "#FAF3E0", // Light beige
   },
   container: {
     flex: 1,
-    alignItems: "center", // Center all content horizontally
+    alignItems: "center",
+    justifyContent: "center",
     padding: 20,
+  },
+  authImage: {
+    width: 120,
+    height: 120,
+    marginBottom: 20,
+  },
+  loginText: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#5C4033",
+    marginBottom: 10,
+  },
+  subText: {
+    fontSize: 16,
+    color: "#7A5C45",
+    marginBottom: 30,
+    textAlign: "center",
+    paddingHorizontal: 10,
+  },
+  button: {
+    backgroundColor: "#5C4033",
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 8,
+    marginBottom: 15,
+  },
+  signUpButton: {
+    backgroundColor: "#7A5C45",
+  },
+  buttonText: {
+    fontSize: 16,
+    color: "#FFF5E1",
+    fontWeight: "bold",
   },
   profileImage: {
     width: 100,
     height: 100,
-    borderRadius: 50, // Makes the image circular
+    borderRadius: 50,
     marginBottom: 20,
+    borderWidth: 2,
+    borderColor: "#5C4033",
   },
   userName: {
-    fontSize: 24, // Larger font size for the name
+    fontSize: 24,
     fontWeight: "bold",
-    color: "#FFF5E1",
-    marginBottom: 30,
+    color: "#5C4033",
+    marginBottom: 20,
   },
   statsContainer: {
-    width: "100%", // Ensures stats span the full width
+    width: "100%",
     flexDirection: "row",
-    flexWrap: "wrap", // Allows items to wrap to the next line
-    justifyContent: "space-between", // Distributes items evenly
+    flexWrap: "wrap", // Allow stats to wrap into the next row
+    justifyContent: "space-between", // Add spacing between items
+    marginBottom: 30,
   },
   statItem: {
-    width: "45%", // Each item takes half the width
-    backgroundColor: "#FFF8E1", // Light caramel background
+    width: "45%", // Adjust width to make stats evenly spaced
+    backgroundColor: "#FFF8E1",
     padding: 15,
     borderRadius: 10,
-    marginBottom: 20,
     alignItems: "center",
+    marginBottom: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 2, // Add subtle shadow for depth
   },
   statNumber: {
-    fontSize: 20,
+    fontSize: 22, // Slightly larger font for emphasis
     fontWeight: "bold",
     color: "#5C4033",
   },
   statLabel: {
     fontSize: 14,
-    color: "#555",
+    color: "#7A5C45",
     textAlign: "center",
     marginTop: 5,
-  },
-  navigationContainer: {
-    flexDirection: "row", // Layout items horizontally
-    justifyContent: "space-around", // Distribute items evenly
-    alignItems: "center", // Center items vertically
-    paddingVertical: 15, // Add some padding for better spacing
-    backgroundColor: "#5C4033", // Keep the caramel background
-    borderTopWidth: 0, // Remove the border
-  },
-  navLink: {
-    alignItems: "center", // Center each link (image and text, if applicable)
-    justifyContent: "center",
-    padding: 10,
-  },
-  navImage: {
-    width: 24, // Adjust the width of the image
-    height: 24, // Adjust the height of the image
-    resizeMode: "contain", // Ensures the image fits within its bounds
-  },
-  navText: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#FFF8E1",
   },
 });
